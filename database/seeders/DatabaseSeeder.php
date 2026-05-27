@@ -44,7 +44,7 @@ class DatabaseSeeder extends Seeder
             ['phone' => '08000000003'],
             [
                 'name'     => 'Cashier One',
-                'email'    => null,
+                'email'    => 'staff@countrystore.test',
                 'phone'    => '08000000003',
                 'role'     => 'staff',
                 'password' => bcrypt('password'),

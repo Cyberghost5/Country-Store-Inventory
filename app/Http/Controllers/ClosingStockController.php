@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\ClosingStock;
+use App\Models\OpeningStock;
 use App\Models\Product;
+use App\Models\Purchase;
+use App\Models\Sale;
 use Illuminate\Http\Request;
 
 class ClosingStockController extends Controller
@@ -19,13 +22,39 @@ class ClosingStockController extends Controller
 
         $date = $request->input('date', today()->toDateString());
 
-        $products = Product::orderBy('name')->get()->map(function ($product) use ($date) {
-            $stock = ClosingStock::where('product_id', $product->id)
-                ->whereDate('date', $date)
-                ->first();
-            $product->closing_for_date       = $stock;
-            $product->closing_qty_for_date   = $stock?->quantity ?? null;
-            $product->closing_notes_for_date = $stock?->notes ?? null;
+        $products      = Product::orderBy('name')->get();
+        $productIds    = $products->pluck('id');
+
+        // Batch queries — avoid N+1
+        $closingStocks  = ClosingStock::whereIn('product_id', $productIds)
+            ->whereDate('date', $date)->get()->keyBy('product_id');
+        $openingStocks  = OpeningStock::whereIn('product_id', $productIds)
+            ->whereDate('date', $date)->get()->keyBy('product_id');
+        $purchaseTotals = Purchase::whereIn('product_id', $productIds)
+            ->whereDate('purchase_date', $date)
+            ->selectRaw('product_id, SUM(quantity) as total')
+            ->groupBy('product_id')->pluck('total', 'product_id');
+        $saleTotals     = Sale::whereIn('product_id', $productIds)
+            ->whereDate('sale_date', $date)
+            ->selectRaw('product_id, SUM(quantity) as total')
+            ->groupBy('product_id')->pluck('total', 'product_id');
+
+        $products = $products->map(function ($product) use ($closingStocks, $openingStocks, $purchaseTotals, $saleTotals) {
+            $stock        = $closingStocks->get($product->id);
+            $opening      = $openingStocks->get($product->id);
+            $purchasedQty = (int) ($purchaseTotals[$product->id] ?? 0);
+            $soldQty      = (int) ($saleTotals[$product->id] ?? 0);
+
+            $product->closing_for_date          = $stock;
+            $product->closing_qty_for_date      = $stock?->quantity ?? null;
+            $product->closing_notes_for_date    = $stock?->notes ?? null;
+            $product->opening_qty_for_date      = $opening?->quantity;
+            $product->purchased_qty_for_date    = $purchasedQty;
+            $product->sold_qty_for_date         = $soldQty;
+            // Expected closing = opening + purchases - sales (null if no opening stock recorded)
+            $product->expected_closing_for_date = $opening !== null
+                ? max(0, $opening->quantity + $purchasedQty - $soldQty)
+                : null;
             return $product;
         });
 

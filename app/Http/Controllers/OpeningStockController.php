@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ClosingStock;
 use App\Models\OpeningStock;
 use App\Models\Product;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class OpeningStockController extends Controller
@@ -21,11 +23,25 @@ class OpeningStockController extends Controller
         $date = $request->input('date', today()->toDateString());
 
         // All products with their opening stock for the selected date
-        $products = Product::orderBy('name')->get()->map(function ($product) use ($date) {
-            $stock = $product->openingStocks()->whereDate('date', $date)->first();
-            $product->stock_for_date     = $stock;
-            $product->qty_for_date       = $stock?->quantity ?? null;
-            $product->notes_for_date     = $stock?->notes ?? null;
+        $products      = Product::orderBy('name')->get();
+        $productIds    = $products->pluck('id');
+        $prevDate      = Carbon::parse($date)->subDay()->toDateString();
+
+        // Batch queries — avoid N+1
+        $openingStocks    = OpeningStock::whereIn('product_id', $productIds)
+            ->whereDate('date', $date)->get()->keyBy('product_id');
+        $prevClosingStocks = ClosingStock::whereIn('product_id', $productIds)
+            ->whereDate('date', $prevDate)->get()->keyBy('product_id');
+
+        $products = $products->map(function ($product) use ($openingStocks, $prevClosingStocks) {
+            $stock       = $openingStocks->get($product->id);
+            $prevClosing = $prevClosingStocks->get($product->id);
+
+            $product->stock_for_date   = $stock;
+            $product->qty_for_date     = $stock?->quantity ?? null;
+            $product->notes_for_date   = $stock?->notes ?? null;
+            // Suggested value from yesterday's closing stock
+            $product->prev_closing_qty = $prevClosing?->quantity;
             return $product;
         });
 

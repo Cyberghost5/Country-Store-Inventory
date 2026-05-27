@@ -27,6 +27,9 @@
       .os-notes-input { width:100%; border:1.5px solid #ddd7c8; border-radius:8px; padding:7px 10px; font-family:inherit; font-size:.78rem; color:#2e342b; resize:none; margin-top:10px; transition:border-color .18s; }
       .os-notes-input:focus { outline:none; border-color:#1d086c; }
       .history-table th, .history-table td { font-size:.8rem; }
+      /* Suggestion from previous closing */
+      .os-suggest { display:inline-flex; align-items:center; gap:5px; font-size:.72rem; color:#1d086c; background:#eef0fa; padding:4px 8px; border-radius:8px; }
+      .os-suggest strong { font-weight:700; }
       .os-date-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
       .os-date-label { font-size:.82rem; font-weight:500; color:#4f574c; }
       .os-date-input { border:1.5px solid #ddd7c8; border-radius:8px; padding:8px 12px; font-family:inherit; font-size:.83rem; color:#2e342b; }
@@ -131,12 +134,17 @@
                       <i class="bi bi-check-circle-fill"></i>
                       {{ number_format($product->qty_for_date) }} recorded
                     </span>
+                  @elseif ($product->prev_closing_qty !== null)
+                    <span class="os-suggest">
+                      <i class="bi bi-arrow-left-right"></i>
+                      Yesterday's closing: <strong>{{ number_format($product->prev_closing_qty) }}</strong>
+                    </span>
                   @endif
 
                   <div class="os-qty-wrap">
                     <input type="number" name="stocks[{{ $product->id }}][quantity]" class="os-qty-input"
                            placeholder="Qty"
-                           value="{{ $product->qty_for_date ?? '' }}"
+                           value="{{ $product->qty_for_date ?? $product->prev_closing_qty ?? '' }}"
                            min="0"
                            {{ $alreadySaved ? 'readonly' : '' }} />
                   </div>

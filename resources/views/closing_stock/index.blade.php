@@ -27,6 +27,13 @@
       .os-notes-input { width:100%; border:1.5px solid #ddd7c8; border-radius:8px; padding:7px 10px; font-family:inherit; font-size:.78rem; color:#2e342b; resize:none; margin-top:10px; transition:border-color .18s; box-sizing:border-box; }
       .os-notes-input:focus { outline:none; border-color:#1d086c; }
       .history-table th, .history-table td { font-size:.8rem; }
+      /* Tally */
+      .os-tally { display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:.72rem; padding:5px 8px; border-radius:8px; background:#f4f0e8; }
+      .os-tally-label { color:#6b7280; font-weight:500; }
+      .os-tally-val { font-weight:700; color:#1d086c; }
+      .os-tally-formula { color:#9a9488; }
+      .os-tally-ok { display:inline-flex; align-items:center; gap:3px; font-weight:600; color:#246b3a; margin-left:auto; }
+      .os-tally-warn { display:inline-flex; align-items:center; gap:3px; font-weight:600; color:#b33a36; margin-left:auto; }
       .os-date-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
       .os-date-label { font-size:.82rem; font-weight:500; color:#4f574c; }
       .os-date-input { border:1.5px solid #ddd7c8; border-radius:8px; padding:8px 12px; font-family:inherit; font-size:.83rem; color:#2e342b; }
@@ -131,6 +138,27 @@
                       <i class="bi bi-check-circle-fill"></i>
                       {{ number_format($product->closing_qty_for_date) }} recorded
                     </span>
+                  @endif
+
+                  {{-- Tally: Opening + Purchases - Sales = Expected Closing --}}
+                  @if ($product->expected_closing_for_date !== null)
+                    <div class="os-tally">
+                      <span class="os-tally-label">Expected:</span>
+                      <span class="os-tally-val">{{ number_format($product->expected_closing_for_date) }}</span>
+                      <span class="os-tally-formula">
+                        ({{ number_format($product->opening_qty_for_date) }}
+                        + {{ number_format($product->purchased_qty_for_date) }}
+                        &minus; {{ number_format($product->sold_qty_for_date) }})
+                      </span>
+                      @if ($product->closing_qty_for_date !== null)
+                        @if ($product->closing_qty_for_date == $product->expected_closing_for_date)
+                          <span class="os-tally-ok"><i class="bi bi-check-circle-fill"></i> Match</span>
+                        @else
+                          @php $diff = $product->closing_qty_for_date - $product->expected_closing_for_date; @endphp
+                          <span class="os-tally-warn"><i class="bi bi-exclamation-triangle-fill"></i> {{ $diff > 0 ? '+' : '' }}{{ number_format($diff) }}</span>
+                        @endif
+                      @endif
+                    </div>
                   @endif
 
                   <div class="os-qty-wrap">
